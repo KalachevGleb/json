@@ -565,14 +565,15 @@ public:
             using T = std::decay_t<decltype(arg)>;
             if constexpr (std::is_same_v<T, std::vector<JSON>> && std::is_integral_v<I>) {
                 if constexpr(std::is_integral_v<I>) {
-                    if (index < 0) {
-                        index += arg.size();
-                    } else if (index >= arg.size()) {
+                    auto idx = index;  // Create a local copy
+                    if (idx < 0) {
+                        idx += arg.size();
+                    } else if (idx >= arg.size()) {
                         throw std::out_of_range(
-                                "JSON index out of range (index = " + std::to_string(index) + ", size = " +
+                                "JSON index out of range (index = " + std::to_string(idx) + ", size = " +
                                 std::to_string(arg.size()) + ")");
                     }
-                    return arg[index];
+                    return arg[idx];
                 }
             } else if constexpr (std::is_same_v<T, std::map<JSON, JSON>>) {
                 return arg[index];
@@ -587,13 +588,14 @@ public:
             using T = std::decay_t<decltype(arg)>;
             if constexpr (std::is_same_v<T, std::vector<JSON>> && std::is_integral_v<I>) {
                 if constexpr (std::is_integral_v<I>) {
-                    if (index < 0) {
-                        index += arg.size();
-                    } else if (index >= arg.size()) {
-                        throw std::out_of_range("JSON::at(" + std::to_string(index) + "): index out of range"
+                    auto idx = index;  // Create a local copy
+                    if (idx < 0) {
+                        idx += arg.size();
+                    } else if (idx >= arg.size()) {
+                        throw std::out_of_range("JSON::at(" + std::to_string(idx) + "): index out of range"
                                                 " (size = " + std::to_string(arg.size()) + ")");
                     }
-                    return arg[index];
+                    return arg[idx];
                 }
             } else if constexpr (std::is_same_v<T, std::map<JSON, JSON>>) {
                 auto it = arg.find(index);

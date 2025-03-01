@@ -7,6 +7,16 @@
 
 using namespace std;
 
+// Forward declarations
+const char* readList(const char*& str, std::vector<JSON> &res, char end);
+const char* readMembers(const char*& str, std::map<JSON,JSON> &res, char end);
+const char* readString(const char*& str, std::string &res);
+const char* readInt(const char*& str, int64_t &res);
+const char* readIntF(const char*& str, int64_t &res);
+const char* readFloat(const char*& str, double &res);
+inline const char* ws(const char*& str);
+inline const char* wait(const char*& str, const char *w);
+
 void JSON::toString(std::string &out, bool wrapLines) const {
     std::visit([&out, wrapLines](auto&& arg) {
         using T = std::decay_t<decltype(arg)>;
@@ -288,135 +298,27 @@ inline const char* wait(const char*& str, const char *w) {
     return nullptr;
 }
 
-const char* parseElement(const char*& str, JSON &res);
-
-const char* readList(const char*& str, std::vector<JSON> &res, char end) {
-    if (!str)return nullptr;
-    const char *ss = str;
-    res.resize(1);
-    while (*ws(str) != end && parseElement(str, res.back())) {
-        res.emplace_back();
-        if(!wait(str, ","))
-            break;
-    }
-    res.pop_back();
-    if (*str != end) {
-        str = ss;
-        return nullptr;
-    }
-    return ++str;
-}
-
-const char* readMembers(const char*& str, std::map<JSON,JSON> &res, char end) {
-    if (!str)return nullptr;
-    res.clear();
-    const char *ss = str;
-    JSON k, v;
-    while (*ws(str) != end && parseElement(str, k) && wait(str,":") && parseElement(str, v)) {
-        res[k] = v;
-        if (!wait(str, ","))
-            break;
-    }
-    if (*str != end) {
-        str = ss;
-        return nullptr;
-    }
-    return ++str;
-}
-
-const char *readString(const char *&str, std::string &res) {
-    if (!str)return nullptr;
-    res.clear();
-    if (*ws(str) == '"') {
-        while (*++str) {
-            switch(*str) {
-                case '\\':
-                    switch (*++str) {
-                        case 'n': res += '\n'; break;
-                        case 'b': res += '\b'; break;
-                        case 'f': res += '\f'; break;
-                        case 'r': res += '\r'; break;
-                        case 't': res += '\t'; break;
-                        case 0: return str;
-                        default: res += *str;
-                    }
-                    break;
-                case '"': return ++str;
-                case '\n':
-                case 0: return str;
-                default:
-                    res += *str;
-            }
-        }
-        return str;
-    }
-    if (!isalnum(*str))return nullptr;
-    while (isalnum(*str))
-        res += *str++;
-    return str;
-}
-
-inline const char *readInt(const char*&str, int64_t &res) {
-    if (!str)return nullptr;
-    res = 0;
-    const char *ss = str;
-    bool sgn = *ss == '-';
-    if (*ss == '-' || *ss == '+')
-        ss++;
-
-    for (; *ss&&isdigit(*ss); ss++) {
-        if (res > (1ULL << 59))return nullptr;
-        res = res * 10 + (*ss - '0');
-    }
-    if (sgn)res = -res;
-    return str = ss;
-}
-
-inline const char *readIntF(const char*&str, int64_t &res) {
-    const char *ss = str;
-    ss = readInt(ss, res);
-    if(ss && (*ss == '.' || *ss == 'e'))return nullptr;
-    return str=ss;
-}
-
-inline const char *readFloat(const char*&str, double &res) {
-    if (!str)return nullptr;
-    res = 0;
-    const char *ss = str;
-    bool sgn = *ss == '-';
-    if (*ss == '-' || *ss == '+')
-        ss++;
-    for (; isdigit(*ss); ss++) {
-        res = res * 10 + (*ss - '0');
-    }
-    if (*ss == '.') {
-        double f = 0.1;
-        for (ss++; *ss && isdigit(*ss); ss++) {
-            res += f*(*ss - '0');
-            f *= 0.1;
-        }
-    }
-    if (sgn)res = -res;
-    if (tolower(*ss) == 'e') {
-        int64_t r;
-        if (!readInt(++ss, r))return str = ss;
-        auto ar = std::abs(r);
-        double x = r > 0 ? 10 : 0.1;
-        for (; ar; ar >>= 1) { // multiply res by 10^r
-            if (ar & 1)res *= x;
-            x *= x;
-        }
-        //res*=pow(10., double(r));
-    }
-    return str = ss;
-}
-
 const char* parseElement(const char*& str, JSON &res) {
     if (!str)return nullptr;
     switch (*ws(str)) {
-        case 't': return wait(str, "true");
-        case 'f': return wait(str, "false");
-        case 'n': return wait(str, "null");
+        case 't': 
+            if (wait(str, "true")) {
+                res = true;
+                return str;
+            }
+            return nullptr;
+        case 'f':
+            if (wait(str, "false")) {
+                res = false;
+                return str;
+            }
+            return nullptr;
+        case 'n': 
+            if (wait(str, "null")) {
+                res.setNull();
+                return str;
+            }
+            return nullptr;
         case '[':
             return readList(++str, res.setArr(), ']');
         case '{':
@@ -436,6 +338,178 @@ const char* parseElement(const char*& str, JSON &res) {
             return nullptr;
     }
     return nullptr;
+}
+
+const char* readList(const char*& str, std::vector<JSON>& res, char end) {
+    if (!str) return nullptr;
+    const char* ss = str;
+    res.resize(1);
+    while (*ws(str) != end && parseElement(str, res.back())) {
+        res.emplace_back();
+        if (!wait(str, ","))
+            break;
+    }
+    res.pop_back();
+    if (*str != end) {
+        str = ss;
+        return nullptr;
+    }
+    return ++str;
+}
+
+const char* readMembers(const char*& str, std::map<JSON, JSON>& res, char end) {
+    if (!str) return nullptr;
+    res.clear();
+    const char* ss = str;
+    JSON k, v;
+    while (*ws(str) != end && parseElement(str, k) && wait(str, ":") && parseElement(str, v)) {
+        res[k] = v;
+        if (!wait(str, ","))
+            break;
+    }
+    if (*str != end) {
+        str = ss;
+        return nullptr;
+    }
+    return ++str;
+}
+
+const char* readString(const char*& str, std::string& res) {
+    if (!str) return nullptr;
+    res.clear();
+    ws(str);
+    if (*str == '"') {
+        str++; // skip opening quote
+        while (*str) {
+            if (*str == '\\') {
+                str++;
+                switch (*str) {
+                    case '"': res += '"'; break;
+                    case '\\': res += '\\'; break;
+                    case '/': res += '/'; break;
+                    case 'b': res += '\b'; break;
+                    case 'f': res += '\f'; break;
+                    case 'n': res += '\n'; break;
+                    case 'r': res += '\r'; break;
+                    case 't': res += '\t'; break;
+                    case 'u': {
+                        // Handle Unicode escape sequences
+                        str++;
+                        uint16_t unicode = 0;
+                        for (int i = 0; i < 4; i++) {
+                            char c = *str++;
+                            unicode <<= 4;
+                            if (c >= '0' && c <= '9') unicode |= c - '0';
+                            else if (c >= 'a' && c <= 'f') unicode |= c - 'a' + 10;
+                            else if (c >= 'A' && c <= 'F') unicode |= c - 'A' + 10;
+                            else return nullptr;
+                        }
+                        str--;
+                        // Convert to UTF-8
+                        if (unicode <= 0x7F) {
+                            res += (char)unicode;
+                        } else if (unicode <= 0x7FF) {
+                            res += (char)(0xC0 | (unicode >> 6));
+                            res += (char)(0x80 | (unicode & 0x3F));
+                        } else {
+                            res += (char)(0xE0 | (unicode >> 12));
+                            res += (char)(0x80 | ((unicode >> 6) & 0x3F));
+                            res += (char)(0x80 | (unicode & 0x3F));
+                        }
+                        break;
+                    }
+                    default: return nullptr; // Invalid escape sequence
+                }
+                str++;
+            } else if (*str == '"') {
+                str++;
+                return str;
+            } else if (*str == '\0' || *str == '\n' || *str == '\r') {
+                return nullptr; // Unterminated string
+            } else {
+                res += *str++;
+            }
+        }
+        return nullptr; // Unterminated string
+    }
+    return nullptr;
+}
+
+const char* readInt(const char*& str, int64_t& res) {
+    if (!str) return nullptr;
+    ws(str);
+    const char* ss = str;
+    res = 0;
+    bool neg = *ss == '-';
+    if (neg || *ss == '+') ss++;
+    if (!isdigit(*ss)) return nullptr;
+    while (isdigit(*ss)) {
+        res = res * 10 + (*ss - '0');
+        ss++;
+    }
+    if (neg) res = -res;
+    str = ss;
+    return ss;
+}
+
+const char* readIntF(const char*& str, int64_t& res) {
+    const char* ss = str;
+    if (readInt(str, res)) {
+        if (*str != '.' && *str != 'e' && *str != 'E') {
+            return str;
+        }
+        str = ss; // Restore position if we see decimal point or exponent
+    }
+    return nullptr;
+}
+
+const char* readFloat(const char*& str, double& res) {
+    if (!str) return nullptr;
+    ws(str);
+    const char* ss = str;
+    res = 0.0;
+    
+    // Handle sign
+    bool neg = *ss == '-';
+    if (neg || *ss == '+') ss++;
+    
+    // Integer part
+    if (!isdigit(*ss)) return nullptr;
+    while (isdigit(*ss)) {
+        res = res * 10.0 + (*ss - '0');
+        ss++;
+    }
+    
+    // Fractional part
+    if (*ss == '.') {
+        ss++;
+        double frac = 0.1;
+        if (!isdigit(*ss)) return nullptr;
+        while (isdigit(*ss)) {
+            res += (*ss - '0') * frac;
+            frac *= 0.1;
+            ss++;
+        }
+    }
+    
+    // Scientific notation
+    if (*ss == 'e' || *ss == 'E') {
+        ss++;
+        bool expNeg = *ss == '-';
+        if (expNeg || *ss == '+') ss++;
+        if (!isdigit(*ss)) return nullptr;
+        int exp = 0;
+        while (isdigit(*ss)) {
+            exp = exp * 10 + (*ss - '0');
+            ss++;
+        }
+        if (expNeg) exp = -exp;
+        res *= pow(10.0, exp);
+    }
+    
+    if (neg) res = -res;
+    str = ss;
+    return ss;
 }
 
 std::string position(const char *ptr, const char *pos) {

@@ -568,9 +568,10 @@ public:
                     auto idx = index;  // Create a local copy
                     if (idx < 0) {
                         idx += arg.size();
-                    } else if (idx >= arg.size()) {
+                    }
+                    if (idx < 0 || idx >= arg.size()) {
                         throw std::out_of_range(
-                                "JSON index out of range (index = " + std::to_string(idx) + ", size = " +
+                                "JSON index out of range (index = " + std::to_string(index) + ", size = " +
                                 std::to_string(arg.size()) + ")");
                     }
                     return arg[idx];
@@ -591,8 +592,9 @@ public:
                     auto idx = index;  // Create a local copy
                     if (idx < 0) {
                         idx += arg.size();
-                    } else if (idx >= arg.size()) {
-                        throw std::out_of_range("JSON::at(" + std::to_string(idx) + "): index out of range"
+                    }
+                    if (idx<0 || idx >= arg.size()) {
+                        throw std::out_of_range("JSON::at(" + std::to_string(index) + "): index out of range"
                                                 " (size = " + std::to_string(arg.size()) + ")");
                     }
                     return arg[idx];

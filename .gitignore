@@ -50,3 +50,9 @@
 .DS_Store
 **/CMakeFiles/
 **/cmake-build*/
+Testing/
+
+# Coverage report files
+coverage/
+*.profraw
+*.profdata

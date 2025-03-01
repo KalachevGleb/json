@@ -18,10 +18,21 @@ FetchContent_MakeAvailable(googletest)
 # Enable testing
 enable_testing()
 
+# Список всех тестовых файлов
+set(TEST_SOURCES
+    json_test.cpp
+    string_escape_test.cpp
+    formatting_test.cpp
+    preferred_size_test.cpp
+    comparison_test.cpp
+    parser_test.cpp
+    coverage_test.cpp
+)
+
 # Add the test executable
 add_executable(
   json_test
-  json_test.cpp
+  ${TEST_SOURCES}
 )
 
 # Include the json directory

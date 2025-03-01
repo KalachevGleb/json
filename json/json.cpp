@@ -545,18 +545,17 @@ JSON& JSON::operator+=(const JSON& rhs) {
         using R = std::decay_t<decltype(rhs)>;
         if constexpr (std::is_arithmetic_v<T> && std::is_arithmetic_v<R>) {
             *this = arg + rhs;
-        } if constexpr (std::is_same_v<T, std::string> && std::is_same_v<R, std::string>) {
-        arg += rhs;
-    } else if constexpr (std::is_same_v<T, std::vector<JSON>> && std::is_same_v<R, std::vector<JSON>>) {
-        arr().reserve(arr().size() + rhs.size());
-        arr().insert(arr().end(), rhs.begin(), rhs.end());
-    } else {
-        throw std::runtime_error("JSON::operator+: type mismatch");
-    }
+        } else if constexpr (std::is_same_v<T, std::string> && std::is_same_v<R, std::string>) {
+            arg += rhs;
+        } else if constexpr (std::is_same_v<T, std::vector<JSON>> && std::is_same_v<R, std::vector<JSON>>) {
+            arr().reserve(arr().size() + rhs.size());
+            arr().insert(arr().end(), rhs.begin(), rhs.end());
+        } else {
+            throw std::runtime_error("JSON::operator+: type mismatch");
+        }
     }, data, rhs.data);
     return *this;
 }
-
 
 JSON& JSON::operator-=(const JSON& rhs) { //arithmetic subtract or key set difference
     std::visit([this](auto&& arg, auto &&rhs) {
